@@ -8,7 +8,7 @@ Created on Fri Apr 29 12:08:16 2022
 import sys
 import pandas as pd
 import json
-from dc_vae import DCVAE
+from rnn_vae import RNNVAE
 from utils import set_index, preprocessing
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import StandardScaler
@@ -32,13 +32,11 @@ if __name__ == '__main__':
                          settings['wo_outliers'], settings['max_std'], 'fit')
     
     # Model initialization
-    model = DCVAE(
+    model = RNNVAE(
         settings['T'],
         settings['M'],
-        settings['cnn_units'],
-        settings['dil_rate'],
-        settings['kernel'],
-        settings['strs'],
+        settings['layer_type'],
+        settings['rnn_units'],
         settings['batch_size'],
         settings['J'],
         settings['epochs'],

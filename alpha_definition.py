@@ -8,7 +8,7 @@ Created on Fri May  6 09:55:00 2022
 import sys
 import pandas as pd
 import json
-from dc_vae import DCVAE
+from rnn_vae import RNNVAE
 from utils import set_index, preprocessing
 import tensorflow as tf
 
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     df_y = set_index(labels)
     
     # Model initialization
-    model = DCVAE(name=settings['model_name'],
+    model = RNNVAE(name=settings['model_name'],
                   T=settings['T'],
                   batch_size=settings['batch_size'])   
     
