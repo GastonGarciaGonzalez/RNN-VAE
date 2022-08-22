@@ -197,7 +197,7 @@ class RNNVAE:
             self.decoder.summary()
         # =============================================================================
 
-        # Instantiate DC-VAE model
+        # Instantiate RNN-VAE model
         # =============================================================================
         [x__mean, x_log_var] = self.decoder(self.encoder(inputs)[2])
         self.vae = Model(inputs, [x__mean, x_log_var], name='vae')
@@ -227,6 +227,17 @@ class RNNVAE:
                                                             )
         # Optimaizer
         opt = optimizers.Adam(learning_rate=lr_schedule)
+
+        # Metrics
+        def loglikelihood(X, pred):
+            MSE = -0.5*K.sum(K.square((X - pred[0])/K.exp(pred[1])),axis=-1) #Sum in M
+            sigma_trace = -K.sum(pred[1], axis=(-1)) #Sum in M
+            log_likelihood = MSE+sigma_trace
+            return K.mean(-log_likelihood) #Mean in the batch and T   
+
+        self.vae.add_metric(reconstruction_loss, name='reconst')
+        self.vae.add_metric(kl_loss, name='kl')
+
         self.vae.compile(optimizer=opt)
 
 
@@ -435,3 +446,24 @@ class RNNVAE:
             latent_space = latent_space[:,-1,:]
             df_latent_space = pd.DataFrame(latent_space, columns=np.arange(latent_space.shape[-1]), index=df_X.iloc[self.T-1:].index)
             return df_predict, df_score, df_reconstruct, df_sig, df_latent_space
+
+
+
+
+    def evaluate(self, df_X=None, seed=42):
+        # Data preprocess
+        X = df_X.values
+        N = df_X.shape[0]
+        
+        dataset = timeseries_dataset_from_array(
+            X, None, self.T, sequence_stride=1, sampling_rate=1,
+            batch_size=self.batch_size, shuffle=True, seed=seed, start_index=None, 
+            end_index=None)
+        
+        
+        # Model evaluate
+        value_elbo, loglikehood = self.vae.evaluate(dataset,
+                     batch_size=self.batch_size,
+                     )  
+        
+        return value_elbo, loglikehood
