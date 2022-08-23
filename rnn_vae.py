@@ -56,6 +56,7 @@ class RNNVAE:
                  J=1,
                  epochs=100,
                  learning_rate=1e-3,
+                 lr_decay=True,
                  decay_rate=0.96,
                  decay_step=1000,
                  name = '',
@@ -204,14 +205,14 @@ class RNNVAE:
         
         # Loss
         # Reconstruction term
-        MSE = -0.5*K.sum(K.square((inputs - x__mean)/K.exp(x_log_var)),axis=-1) #Sum in M
-        sigma_trace = -K.sum(x_log_var, axis=(-1)) #Sum in M
+        MSE = -0.5*K.mean(K.square((inputs - x__mean)/K.exp(x_log_var)),axis=-1) #Mean in M
+        sigma_trace = -K.mean(x_log_var, axis=(-1)) #Mean in M
         log_likelihood = MSE+sigma_trace
         reconstruction_loss = K.mean(-log_likelihood) #Mean in the batch and T   
        
         # Priori hypothesis term
         kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
-        kl_loss = K.sum(kl_loss, axis=-1) #Sum in J
+        kl_loss = K.mean(kl_loss, axis=-1) #Mean in J
         kl_loss *= -0.5
         kl_loss = tf.reduce_mean(kl_loss) #Mean in the batch and T
         
@@ -220,23 +221,22 @@ class RNNVAE:
         self.vae.add_loss(vae_loss)
         
         # Learning rate
-        lr_schedule = optimizers.schedules.ExponentialDecay(learning_rate,
-                                                            decay_steps=decay_step,
-                                                            decay_rate=decay_rate,
-                                                            staircase=True,
-                                                            )
+        if lr_decay: 
+            lr = optimizers.schedules.ExponentialDecay(learning_rate,
+                                                    decay_steps=decay_step,
+                                                    decay_rate=decay_rate,
+                                                    staircase=True,
+                                                    )
+        else:
+            lr = learning_rate
+        
         # Optimaizer
-        opt = optimizers.Adam(learning_rate=lr_schedule)
+        opt = optimizers.Adam(learning_rate=lr)
 
         # Metrics
-        def loglikelihood(X, pred):
-            MSE = -0.5*K.sum(K.square((X - pred[0])/K.exp(pred[1])),axis=-1) #Sum in M
-            sigma_trace = -K.sum(pred[1], axis=(-1)) #Sum in M
-            log_likelihood = MSE+sigma_trace
-            return K.mean(-log_likelihood) #Mean in the batch and T   
-
         self.vae.add_metric(reconstruction_loss, name='reconst')
         self.vae.add_metric(kl_loss, name='kl')
+
 
         self.vae.compile(optimizer=opt)
 
@@ -450,20 +450,27 @@ class RNNVAE:
 
 
 
-    def evaluate(self, df_X=None, seed=42):
+    def evaluate(self, load_model=False, df_X=None, seed=42):
         # Data preprocess
         X = df_X.values
         N = df_X.shape[0]
         
-        dataset = timeseries_dataset_from_array(
+        data = timeseries_dataset_from_array(
             X, None, self.T, sequence_stride=1, sampling_rate=1,
             batch_size=self.batch_size, shuffle=True, seed=seed, start_index=None, 
             end_index=None)
+
+        # Trained model
+        if load_model:
+            self.vae = keras.models.load_model(self.name+'_complete.h5',
+                                                    custom_objects={'sampling': Sampling},
+                                                    compile = True)
         
-        
+        #dataset = tf.data.Dataset.zip((data, data))
+
         # Model evaluate
-        value_elbo, loglikehood = self.vae.evaluate(dataset,
+        value_elbo, reconstruction, kl = self.vae.evaluate(data,
                      batch_size=self.batch_size,
                      )  
         
-        return value_elbo, loglikehood
+        return value_elbo, reconstruction, kl

@@ -1,6 +1,6 @@
 {
 "dataset_name": "TELCO",
-"model_name":  "rnn-vae",
+"model_name":  "rnn-vae-optuna",
 "scale": true,
 "wo_outliers": true,
 "max_std": 7,
@@ -12,8 +12,9 @@
 "alpha_reg": 1e-4,
 "batch_size": 32,
 "J": 4,
-"epochs": 5,
+"epochs": 100,
 "lr": 1e-3,
+"lr_decay": false,
 "decay_rate": 0.96,
 "decay_step": 7000,
 "val_percent": 0.2,
